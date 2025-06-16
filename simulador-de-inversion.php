@@ -1,127 +1,37 @@
-// Función auxiliar para procesar shortcodes de rentabilidad
+<?php
+
 function get_rentabilidad_from_shortcode($shortcode) {
+    // Ejecuta el shortcode y captura la salida como string
     $output = do_shortcode($shortcode);
+
+    // Limpieza básica: 
+    // - quitar espacios en los extremos (trim)
+    // - cambiar comas por puntos
+    // - eliminar el símbolo '%' si existe
     $cleaned_output = str_replace(',', '.', trim($output));
     $cleaned_output = str_replace('%', '', $cleaned_output);
+
+    // Convertir a float
     $rentabilidad = (float) $cleaned_output;
-    return ($rentabilidad > 1) ? $rentabilidad / 100 : $rentabilidad;
-}
 
-// Datos de los fondos de inversión
-function get_fondos_data() {
-    return [
-        "Global Vista" => [
-            "shortcode_mes"    => '[Fondo fondo="1" columna="Mes"]',
-            "shortcode_6meses" => '[Fondo fondo="1" columna="Semestre"]',
-            "shortcode_ytd"    => '[Fondo fondo="1" columna="Corrido"]',
-            "shortcode_anual"  => '[Fondo fondo="1" columna="Anual"]',
-            "minimo"           => 1000,
-            "riesgo"           => "Conservador",
-            "plazo"            => 1
-        ],
-        "GS Acciones" => [
-            "shortcode_mes"    => '[Fondo fondo="3" columna="Mes"]',
-            "shortcode_6meses" => '[Fondo fondo="3" columna="Semestre"]',
-            "shortcode_ytd"    => '[Fondo fondo="3" columna="Corrido"]',
-            "shortcode_anual"  => '[Fondo fondo="3" columna="Anual"]',
-            "minimo"           => 100000,
-            "riesgo"           => "Arriesgado",
-            "plazo"            => 15
-        ],
-        "COF Facturas" => [
-            "shortcode_mes"    => '[Fondo fondo="2" columna="Mes"]',
-            "shortcode_6meses" => '[Fondo fondo="2" columna="Semestre"]',
-            "shortcode_ytd"    => '[Fondo fondo="2" columna="Corrido"]',
-            "shortcode_anual"  => '[Fondo fondo="2" columna="Anual"]',
-            "minimo"           => 5000000,
-            "riesgo"           => "Arriesgado",
-            "plazo"            => 90
-        ],
-        "COF Títulos Valores" => [
-            "shortcode_mes"    => '[Fondo fondo="5" columna="Mes"]',
-            "shortcode_6meses" => '[Fondo fondo="5" columna="Semestre"]',
-            "shortcode_ytd"    => '[Fondo fondo="5" columna="Corrido"]',
-            "shortcode_anual"  => '[Fondo fondo="5" columna="Anual"]',
-            "minimo"           => 5000000,
-            "riesgo"           => "Arriesgado",
-            "plazo"            => 180
-        ],
-        "Renta Crédito" => [
-            "shortcode_mes"    => '[Fondo fondo="10" columna="Mes"]',
-            "shortcode_6meses" => '[Fondo fondo="10" columna="Semestre"]',
-            "shortcode_ytd"    => '[Fondo fondo="10" columna="Corrido"]',
-            "shortcode_anual"  => '[Fondo fondo="10" columna="Anual"]',
-            "minimo"           => 200000,
-            "riesgo"           => "Arriesgado",
-            "plazo"            => 365
-        ],
-        "Renta Fija MP" => [
-            "shortcode_mes"    => '[Fondo fondo="110" columna="Mes"]',
-            "shortcode_6meses" => '[Fondo fondo="110" columna="Semestre"]',
-            "shortcode_ytd"    => '[Fondo fondo="110" columna="Corrido"]',
-            "shortcode_anual"  => '[Fondo fondo="110" columna="Anual"]',
-            "minimo"           => 50000,
-            "riesgo"           => "Moderado",
-            "plazo"            => 90
-        ],
-        "Renta Plus" => [
-            "shortcode_mes"    => '[Fondo fondo="109" columna="Mes"]',
-            "shortcode_6meses" => '[Fondo fondo="109" columna="Semestre"]',
-            "shortcode_ytd"    => '[Fondo fondo="109" columna="Corrido"]',
-            "shortcode_anual"  => '[Fondo fondo="109" columna="Anual"]',
-            "minimo"           => 10000000,
-            "riesgo"           => "Arriesgado",
-            "plazo"            => 480
-        ],
-        "Rentamás" => [
-            "shortcode_mes"    => '[Fondo fondo="102" columna="Mes"]',
-            "shortcode_6meses" => '[Fondo fondo="102" columna="Semestre"]',
-            "shortcode_ytd"    => '[Fondo fondo="102" columna="Corrido"]',
-            "shortcode_anual"  => '[Fondo fondo="102" columna="Anual"]',
-            "minimo"           => 3000000,
-            "riesgo"           => "Arriesgado",
-            "plazo"            => 90
-        ]
-    ];
-}
-
-// Función para procesar los datos de los fondos
-function procesar_datos_fondos($fondos_data) {
-    $rentabilidades = [];
-    foreach ($fondos_data as $nombre => $data) {
-        $rentabilidades[$nombre] = [
-            "mes"   => get_rentabilidad_from_shortcode($data['shortcode_mes']),
-            "seisM" => get_rentabilidad_from_shortcode($data['shortcode_6meses']),
-            "ytd"   => get_rentabilidad_from_shortcode($data['shortcode_ytd']),
-            "anual" => get_rentabilidad_from_shortcode($data['shortcode_anual']),
-        ];
+    // Si el número es mayor que 1, lo tomamos como porcentaje (por ejemplo, 8.57 significa 8.57%)
+    // y lo convertimos a su equivalente decimal (8.57 / 100 = 0.0857)
+    if ($rentabilidad > 1) {
+        return $rentabilidad / 100;
     }
 
-    $all_funds_data = [];
-    foreach ($fondos_data as $nombre => $data) {
-        $all_funds_data[$nombre] = [
-            "rentabilidades" => $rentabilidades[$nombre],
-            "minimo"         => $data["minimo"],
-            "riesgo"         => $data["riesgo"],
-            "plazo"          => $data["plazo"]
-        ];
-    }
-
-    return $all_funds_data;
+    // Si ya es un valor decimal (<= 1), lo retornamos tal cual
+    return $rentabilidad;
 }
 
-// Shortcode principal del simulador
+// 2. Registrar el shortcode [simulador-progresion]
 add_shortcode('simulador-progresion', function() {
     ob_start();
-    
-    // Obtener y procesar datos
-    $fondos_data = get_fondos_data();
-    $all_funds_data = procesar_datos_fondos($fondos_data);
-    $json_fondos_data = json_encode($all_funds_data);
-    $tasa_usd_cop = 4000; // Tasa de cambio fija
+
+    // 7. Generar el HTML del simulador, inyectando el JSON en data-fondos
     ?>
-    
     <div id="simulador-progresion-container" data-fondos='<?php echo esc_attr($json_fondos_data); ?>'>
+        
         <h2>Simulador de Inversión</h2>
         <p>En esta sección, puede simular su inversión de acuerdo con el monto que desea invertir en COP (Pesos Colombianos).</p>
         
@@ -138,22 +48,24 @@ add_shortcode('simulador-progresion', function() {
                     </div>
                 </form>
 
-                <!-- Lista de fondos sugeridos -->
+                <!-- Lista de fondos sugeridos (visible inmediatamente) -->
                 <div id="fondos-sugeridos">
                     <ul id="lista-fondos-filtrados">
                         <!-- Los fondos filtrados se insertarán aquí por JS -->
                     </ul>
-                </div>                
+				</div>                
             </div>
         </div>
 
-        <!-- Formulario de datos básicos -->
+        <!-- Formulario de datos básicos (inicialmente oculto) -->
         <div id="formulario-datos">
             <div class="encabezado-formulario">
                 <h3>Datos básicos</h3>
                 <button type="button" id="boton-regresar">← Regresar</button>
             </div>
-            <?php echo do_shortcode('[gravityform id="12" title="false" ajax="true"]'); ?>
+            <?php 
+            echo do_shortcode('[gravityform id="12" title="false" ajax="true"]'); 
+            ?>
         </div>
 
         <!-- Disclaimer -->
@@ -161,6 +73,10 @@ add_shortcode('simulador-progresion', function() {
             <p>Esta es una simulación basada en rentabilidades históricas. Los resultados no garantizan rendimientos futuros.</p>
         </div>
     </div>
+
+    <!-- Incluir los archivos CSS y JavaScript -->
+
+
     <?php
     return ob_get_clean();
 });

@@ -50,7 +50,7 @@ div#formulario-datos form input{
 
 #simulador-progresion-container h2 {
     text-align: center;
-    color: #fff;
+    color: #000;
     margin-bottom: 30px;
     font-weight:bold;
     margin:0 0 5px 0;
@@ -138,9 +138,9 @@ div#formulario-datos form input{
 #lista-fondos-filtrados {
     list-style: none;
     padding: 0;
-    display:flex;
-    flex-direction:column;
-    gap:30px;
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap:20px;
     margin:0px;
 }
 
@@ -613,4 +613,63 @@ button.seleccionar-fondo-btn:hover{
 
 .button:hover {
     opacity: 0.9;
+}
+
+.plazo-selector {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: none;
+}
+
+.plazo-selector label {
+    display: block;
+    margin-bottom: 8px;
+    color: #555;
+    font-weight: 500;
+}
+
+.plazo-selector select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+    font-size: 16px;
+}
+
+.plazo-selector select:focus {
+    border-color: #1a73e8;
+    outline: none;
+}
+
+.resultado-simulacion {
+    margin: 20px 0;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.resultado-simulacion h4 {
+    color: #02253a;
+    margin-bottom: 15px;
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+.resultado-simulacion p {
+    margin: 8px 0;
+    color: #555;
+    font-size: 1.1em;
+}
+
+.resultado-simulacion p:last-child {
+    font-weight: 600;
+    color: #02253a;
+    font-size: 1.2em;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e9ecef;
 }
