@@ -42,167 +42,139 @@ function reiniciarSimulador() {
 // Variable global para almacenar el fondo seleccionado
 let fondoSeleccionado = null;
 
+// Función para generar opciones de plazo según el plazo mínimo y máximo
+function generarOpcionesPlazo(plazo) {
+    const opciones = [];
+    // Si el plazo es un objeto (variable)
+    if (typeof plazo === 'object' && plazo.minimo && plazo.maximo) {
+        for (let i = plazo.minimo; i <= plazo.maximo; i += plazo.minimo) {
+            opciones.push({
+                value: i,
+                label: `${i} días`
+            });
+        }
+    } else if (typeof plazo === 'number' && plazo > 0) {
+        // Si el plazo es fijo, no se generan opciones
+        // (el dropdown no se muestra en este caso)
+    }
+    return opciones;
+}
+
+// Función para calcular la rentabilidad considerando el plazo
+function calcularRentabilidadConPlazo(monto, rentabilidadAnual, plazo) {
+    // Convertir la rentabilidad anual a la rentabilidad para el plazo específico
+    const rentabilidadPlazo = Math.pow(1 + rentabilidadAnual, plazo / 365) - 1;
+    // Calcular el resultado
+    return monto * (1 + rentabilidadPlazo);
+}
+
 // Función para actualizar los fondos sugeridos en tiempo real
 function actualizarFondosSugeridos() {
-    const montoInput = document.getElementById('monto');
-    const monto = parseFloat(montoInput.value);
-
-    // Limpiar mensajes de error previos
-    document.getElementById('error-monto').textContent = '';
-
-    // Si no hay monto, limpiar la lista
-    if (!monto || monto <= 0) {
-        document.getElementById('error-monto').textContent = 'Ingrese un monto válido (> 0).';
-        document.getElementById('lista-fondos-filtrados').innerHTML = '';
-        return;
-    }
-
-    // Encontrar el fondo con el monto mínimo más bajo
-    const minimoMasBajo = Math.min(...Object.values(fondos).map(data => data.minimo));
-    
-    // Validar si el monto es menor al mínimo más bajo
-    if (monto < minimoMasBajo) {
-        document.getElementById('error-monto').textContent = `El monto mínimo de inversión es ${formatearMoneda(minimoMasBajo)}.`;
-        document.getElementById('lista-fondos-filtrados').innerHTML = '';
-        return;
-    }
-
-    // Filtrar fondos
-    const fondosFiltrados = Object.entries(fondos).filter(([nombre, data]) => {
-        return data.minimo <= monto;
-    });
-
-    // Ordenar los fondos según el monto mínimo de mayor a menor
-    fondosFiltrados.sort(([, dataA], [, dataB]) => {
-        return dataB.minimo - dataA.minimo;
-    });
-
-    // Mostrar lista de fondos filtrados
+    const monto = parseFloat(document.getElementById('monto').value) || 0;
     const listaFondosDiv = document.getElementById('lista-fondos-filtrados');
-    listaFondosDiv.innerHTML = ''; // Limpiar lista previa
+    listaFondosDiv.innerHTML = '';
 
-    // Eliminar título previo si existe
-    const existingTitle = document.querySelector('#fondos-sugeridos h3');
-    if (existingTitle) {
-        existingTitle.remove();
-    }
+    // Filtrar fondos según el monto mínimo
+    const fondosFiltrados = Object.entries(fondos).filter(([_, data]) => monto >= data.minimo);
 
     if (fondosFiltrados.length === 0) {
-         listaFondosDiv.innerHTML = '<p>No hay fondos disponibles para el monto ingresado.</p>';
-         document.getElementById('boton-simular-container').style.display = 'none';
+        listaFondosDiv.innerHTML = '<p>No hay fondos disponibles para el monto ingresado.</p>';
+        document.getElementById('boton-simular-container').style.display = 'none';
     } else {
-        // Agregar el título dinámicamente solo si no existe
-        const tituloFondos = document.createElement('h3');
-        tituloFondos.textContent = 'Fondos disponibles para invertir';
-        tituloFondos.style.color = '#333';
-        tituloFondos.style.marginBottom = '15px';
-        tituloFondos.style.textAlign = 'center';
-        tituloFondos.style.fontWeight = '600';
-        document.getElementById('fondos-sugeridos').prepend(tituloFondos);
-
         fondosFiltrados.forEach(([nombre, data]) => {
             const li = document.createElement('li');
             li.classList.add('fondo_item');
 
-            // Función para determinar qué opciones de rentabilidad mostrar según el plazo
-            function getRentabilidadOptions(plazo) {
-                const options = [];
-                if (plazo <= 30) {
-                    options.push({ value: 'mes', label: 'Último mes' });
+            // Determinar si el fondo tiene plazo fijo o variable
+            let esPlazoFijo = false;
+            let textoPlazo = '';
+            let mostrarSelectorPlazo = false;
+            let plazoValor = 0;
+            
+            // Corregir la lógica para determinar el tipo de plazo
+            if (data.plazo && typeof data.plazo === 'object') {
+                // Caso 1: Plazo con estructura {tipo: 'fijo', valor: X} o {tipo: 'variable', minimo: X, maximo: Y}
+                if (data.plazo.tipo === 'fijo') {
+                    esPlazoFijo = true;
+                    plazoValor = data.plazo.valor;
+                    if (nombre === 'Renta Plus') {
+                        textoPlazo = '40 años';
+                    } else {
+                        textoPlazo = `${plazoValor} días`;
+                    }
+                } else if (data.plazo.tipo === 'variable' || data.plazo.minimo) {
+                    esPlazoFijo = false;
+                    plazoValor = data.plazo.minimo;
+                    textoPlazo = `${plazoValor} días`;
+                    mostrarSelectorPlazo = plazoValor < 365;
                 }
-                if (plazo <= 180) {
-                    options.push({ value: 'seisM', label: 'Últimos 6 meses' });
+                // Caso 2: Plazo con estructura {minimo: X, maximo: Y}
+                else if (data.plazo.minimo && data.plazo.maximo) {
+                    esPlazoFijo = false;
+                    plazoValor = data.plazo.minimo;
+                    textoPlazo = `${plazoValor} - ${data.plazo.maximo} días`;
+                    mostrarSelectorPlazo = plazoValor < 365;
                 }
-                if (plazo <= 365) {
-                    options.push({ value: 'ytd', label: 'Año corrido' });
-                }
-                options.push({ value: 'anual', label: 'Último año' });
-                return options;
+            } 
+            // Caso 3: Plazo como número directo
+            else if (typeof data.plazo === 'number' && data.plazo > 0) {
+                esPlazoFijo = true;
+                plazoValor = data.plazo;
+                textoPlazo = `${plazoValor} días`;
+            }
+            // Caso 4: Si no hay información de plazo
+            else {
+                textoPlazo = 'No especificado';
             }
 
-            // Obtener opciones de rentabilidad según el plazo
-            const rentabilidadOptions = getRentabilidadOptions(data.plazo);
-            
-            // Usar la primera opción disponible como valor por defecto
-            const defaultRentabilidad = rentabilidadOptions[0].value;
-            const rentabilidad = data.rentabilidades[defaultRentabilidad];
-            const montoConRentabilidad = calcularRentabilidadConPlazo(monto, rentabilidad, data.plazo);
+            console.log(`Fondo: ${nombre}, Plazo data:`, data.plazo, `Texto plazo: ${textoPlazo}`);
+
+            // Obtener la rentabilidad anual
+            const rentabilidadAnual = data.rentabilidades ? data.rentabilidades.anual : 0;
+            const montoConRentabilidad = esPlazoFijo ? 
+                calcularRentabilidadConPlazo(monto, rentabilidadAnual, plazoValor) :
+                monto;
 
             li.innerHTML = `
                 <div class="fondo-contenedor">
-	<div class="fondo-titulo">
-		<strong>${nombre}</strong>
-	</div>
+                    <div class="fondo-titulo">
+                        <strong>${nombre}</strong>
+                    </div>
 
-	<div class="fondo-monto-invertido">
-		<strong>Monto invertido:</strong> ${formatearMoneda(monto)} COP
-	</div>
+                    <div class="fondo-monto-invertido">
+                        <strong>Monto invertido:</strong> ${formatearMoneda(monto)} COP
+                    </div>
 
-	<div class="fondo-info">
-		<span class="fondo-minimo">Mínimo: ${formatearMoneda(data.minimo)}</span>
-		<span class="fondo-plazo">Plazo de permanencia: ${data.plazo} días</span>
-		<span class="fondo-riesgo">Perfil de riesgo: ${data.riesgo}</span>
-	</div>
+                    <div class="fondo-info">
+                        <span class="fondo-minimo">Mínimo: ${formatearMoneda(data.minimo)}</span>
+                        <span class="fondo-plazo">Plazo de permanencia: ${textoPlazo}</span>
+                        <span class="fondo-riesgo">Perfil de riesgo: ${data.riesgo}</span>
+                    </div>
 
-	<div class="rentabilidad-details" style="display: none;">
-		<div class="fondo-rentabilidad">
-			<label class="rentabilidad-label">Seleccione período de rentabilidad:</label>
-			<select class="rentabilidad-select" data-fondo="${nombre}">
-				${rentabilidadOptions.map(opt => 
-					`<option value="${opt.value}">${opt.label}</option>`
-				).join('')}
-			</select>
-			<div class="rentabilidad-valor">
-				Rentabilidad: <span class="rentabilidad-numero">${formatearPorcentaje(rentabilidad)}</span>
-			</div>
-		</div>
-	</div>
+                    <div class="plazo-selector" style="display: none" data-mostrar-selector="${mostrarSelectorPlazo}">
+                        <label class="plazo-label">Seleccione el plazo de inversión:</label>
+                        <select class="plazo-select" data-fondo="${nombre}">
+                            ${generarOpcionesPlazo(data.plazo).map(opt => 
+                                `<option value="${opt.value}">${opt.label}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
 
-	<div class="fondo-boton">
-		<button type="button" class="seleccionar-fondo-btn" data-fondo-nombre="${nombre}">
-			Seleccionar este fondo
-		</button>
-	</div>
-	<div class="boton-simular-container" style="display: none;">
-		<button type="button" class="boton-simular" data-fondo-nombre="${nombre}">Simular</button>
-	</div>
-</div>
+                    <div class="fondo-boton">
+                        <button type="button" class="seleccionar-fondo-btn" data-fondo-nombre="${nombre}">
+                            Seleccionar este fondo
+                        </button>
+                    </div>
+                    <div class="boton-simular-container" style="display: none;">
+                        <button type="button" class="boton-simular" data-fondo-nombre="${nombre}">Simular</button>
+                    </div>
+                </div>
             `;
             listaFondosDiv.appendChild(li);
-
-            // Agregar event listener para el selector de rentabilidad DENTRO de este li
-            const select = li.querySelector('.rentabilidad-select');
-            select.addEventListener('change', function() {
-                const tipoRentabilidad = this.value;
-                const rentabilidad = data.rentabilidades[tipoRentabilidad];
-                const montoConRentabilidad = calcularRentabilidadConPlazo(monto, rentabilidad, data.plazo);
-                
-                // Actualizar los valores mostrados DENTRO de este li
-                li.querySelector('.rentabilidad-numero').textContent = formatearPorcentaje(rentabilidad);
-                //li.querySelector('.fondo_resultado strong').textContent = formatearMoneda(montoConRentabilidad);
-                
-                // Actualizar el campo oculto de rentabilidad y período cuando cambia el selector
-                const resultadoFormateado = formatearMoneda(montoConRentabilidad);
-                const rentabilidadOculta = document.querySelector('input[name="input_12"]');
-                const periodoRentabilidadCodigoOculto = document.querySelector('input[name="input_16"]');
-                console.log('Selector de rentabilidad cambiado. Tipo de rentabilidad:', tipoRentabilidad); // Debugging
-
-                // Solo actualiza si el fondo seleccionado actualmente coincide con este selector
-                if (fondoSeleccionado === nombre) {
-                     if (rentabilidadOculta) rentabilidadOculta.value = formatearPorcentaje(rentabilidad);
-                     if (periodoRentabilidadCodigoOculto) periodoRentabilidadCodigoOculto.value = tipoRentabilidad;
-                     console.log('Campos ocultos actualizados para fondo seleccionado.'); // Debugging
-                }
-            });
         });
     }
 }
 
-// Función para calcular la rentabilidad considerando el plazo
-function calcularRentabilidadConPlazo(monto, rentabilidad, plazo) {
-    // Calcular el resultado simplemente multiplicando el monto por la rentabilidad
-    return monto * (1 + rentabilidad);
-}
 
 // Agregar event listeners para actualización en tiempo real
 document.getElementById('monto').addEventListener('input', actualizarFondosSugeridos);
@@ -210,17 +182,13 @@ document.getElementById('monto').addEventListener('input', actualizarFondosSuger
 // Modificar el event listener para los botones de selección de fondo
 document.getElementById('fondos-sugeridos').addEventListener('click', function(event) {
     if (event.target.classList.contains('seleccionar-fondo-btn')) {
-        // Deseleccionar todos los fondos y ocultar detalles de rentabilidad y botones de simular
+        // Deseleccionar todos los fondos
         document.querySelectorAll('.fondo_item').forEach(item => {
             item.classList.remove('activo');
-            const rentabilidadDetails = item.querySelector('.rentabilidad-details');
+            const plazoSelector = item.querySelector('.plazo-selector');
             const botonSimularContainer = item.querySelector('.boton-simular-container');
-            if (rentabilidadDetails) {
-                rentabilidadDetails.style.display = 'none';
-            }
-            if (botonSimularContainer) {
-                botonSimularContainer.style.display = 'none';
-            }
+            if (plazoSelector) plazoSelector.style.display = 'none';
+            if (botonSimularContainer) botonSimularContainer.style.display = 'none';
         });
         
         // Agregar clase activo al fondo seleccionado
@@ -232,65 +200,50 @@ document.getElementById('fondos-sugeridos').addEventListener('click', function(e
         
         // Obtener el monto ingresado
         const monto = parseFloat(document.getElementById('monto').value);
-
-        // Mostrar los detalles de rentabilidad SOLO para el fondo seleccionado
-        const rentabilidadDetails = currentLi.querySelector('.rentabilidad-details');
-        if (rentabilidadDetails) {
-            rentabilidadDetails.style.display = 'block';
+        const fondoData = fondos[fondoSeleccionado];
+        
+        // Mostrar el selector de plazo solo si está habilitado para este fondo
+        const plazoSelector = currentLi.querySelector('.plazo-selector');
+        if (plazoSelector && plazoSelector.dataset.mostrarSelector === 'true') {
+            plazoSelector.style.display = 'block';
         }
-
-        // Mostrar el botón de simular SOLO para el fondo seleccionado
+        
+        // Mostrar el botón de simular
         const botonSimularContainer = currentLi.querySelector('.boton-simular-container');
         if (botonSimularContainer) {
             botonSimularContainer.style.display = 'block';
         }
         
-        // Obtener el tipo de rentabilidad seleccionado para este fondo
-        const rentabilidadSelect = currentLi.querySelector('.rentabilidad-select');
-        const tipoRentabilidad = rentabilidadSelect.value;
+        // Actualizar el cálculo inicial
+        const rentabilidadAnual = fondoData.rentabilidades.anual;
+        const plazo = typeof fondoData.plazo === 'number' ? fondoData.plazo : 
+            parseInt(currentLi.querySelector('.plazo-select')?.value || fondoData.plazo.minimo);
+        
+        const montoConRentabilidad = calcularRentabilidadConPlazo(monto, rentabilidadAnual, plazo);
+        
+        // Actualizar campos ocultos
+        const rentabilidadOculta = document.querySelector('input[name="input_12"]');
+        const plazoOculto = document.querySelector('input[name="input_16"]');
+        if (rentabilidadOculta) rentabilidadOculta.value = formatearPorcentaje(rentabilidadAnual);
+        if (plazoOculto) plazoOculto.value = plazo;
+    }
+});
 
-        // Obtener el plazo de permanencia del fondo
-        const plazoPermanencia = fondos[fondoSeleccionado].plazo;
+// Agregar event listener para el selector de plazo
+document.getElementById('fondos-sugeridos').addEventListener('change', function(event) {
+    if (event.target.classList.contains('plazo-select')) {
+        const monto = parseFloat(document.getElementById('monto').value);
+        const fondoNombre = event.target.dataset.fondo;
+        const fondoData = fondos[fondoNombre];
+        const plazo = parseInt(event.target.value);
         
-        // Calcular la rentabilidad según el período seleccionado
-        const rentabilidad = fondos[fondoSeleccionado].rentabilidades[tipoRentabilidad];
+        // Calcular con la rentabilidad anual
+        const rentabilidadAnual = fondoData.rentabilidades.anual;
+        const montoConRentabilidad = calcularRentabilidadConPlazo(monto, rentabilidadAnual, plazo);
         
-        // Calcular el resultado
-        const montoConRentabilidad = calcularRentabilidadConPlazo(monto, rentabilidad, plazoPermanencia);
-        
-        // Formatear el resultado
-        const resultadoFormateado = formatearMoneda(montoConRentabilidad);
-        
-        // Crear o actualizar los campos ocultos (o visibles de Gravity Forms)
-        const campos = {
-            'input_8': resultadoFormateado,
-            'input_10': monto,
-            'input_11': fondoSeleccionado,
-            'input_12': formatearPorcentaje(rentabilidad),
-            'input_13': plazoPermanencia,
-            'input_14': `${plazoPermanencia} ${plazoPermanencia === 1 ? 'Día' : 'Días'}`,
-            'input_15': fondos[fondoSeleccionado].riesgo,
-            'input_16': tipoRentabilidad
-        };
-
-        // Actualizar cada campo
-        Object.entries(campos).forEach(([name, value]) => {
-            const fieldId = name.split('_')[1];
-            const targetId = `input_12_${fieldId}`;
-            let inputElement = document.getElementById(targetId);
-
-            if (inputElement) {
-                console.log(`Actualizando campo visible ${targetId} con valor:`, value);
-                inputElement.value = value;
-            } else {
-                inputElement = document.createElement('input');
-                inputElement.type = 'hidden';
-                inputElement.name = name;
-                document.querySelector('.gform_body').appendChild(inputElement);
-                console.log(`Creando campo oculto ${name} con valor:`, value);
-                inputElement.value = value;
-            }
-        });
+        // Actualizar el campo oculto del plazo
+        const plazoOculto = document.querySelector('input[name="input_16"]');
+        if (plazoOculto) plazoOculto.value = plazo;
     }
 });
 
@@ -362,34 +315,6 @@ jQuery(document).ready(function($) {
         return opciones;
     }
 
-    // Función para mostrar el selector de plazo
-    function mostrarSelectorPlazo(fondo) {
-        const plazoData = fondo.plazo;
-        const selectorContainer = $('.plazo-selector');
-        if (plazoData.tipo === 'fijo') {
-            selectorContainer.hide();
-            return;
-        }
-        const select = $('#plazo-inversion');
-        select.empty();
-        select.html(generarOpcionesPlazo(plazoData.minimo, plazoData.maximo));
-        selectorContainer.show();
-    }
-
-    // Función para calcular la rentabilidad según el plazo
-    function calcularRentabilidad(monto, rentabilidad, plazo) {
-        // Convertir la rentabilidad anual a diaria
-        const rentabilidadDiaria = Math.pow(1 + rentabilidad, 1/365) - 1;
-        // Calcular el valor final
-        const valorFinal = monto * Math.pow(1 + rentabilidadDiaria, plazo);
-        return valorFinal;
-    }
-
-    // Función para formatear porcentaje
-    function formatearPorcentaje(valor) {
-        return (valor * 100).toFixed(2) + '%';
-    }
-
     // Renderizar la lista de fondos correctamente
     function renderFondos(fondosFiltrados, monto) {
         const listaFondos = $('#lista-fondos-filtrados');
@@ -397,9 +322,13 @@ jQuery(document).ready(function($) {
         fondosFiltrados.forEach(([nombre, data]) => {
             let plazoTexto = '';
             if (data.plazo.tipo === 'fijo') {
-                plazoTexto = `${data.plazo.valor} días`;
+                if (nombre === 'Renta Plus') {
+                    plazoTexto = '40 años';
+                } else {
+                    plazoTexto = `${data.plazo.valor} días`;
+                }
             } else {
-                plazoTexto = `Mínimo ${data.plazo.minimo} días`;
+                plazoTexto = `${data.plazo.minimo} días`;
             }
             const item = $(`
                 <li class="fondo_item">
@@ -430,16 +359,49 @@ jQuery(document).ready(function($) {
         // Ocultar selector y resultado al cambiar monto
         $('.plazo-selector').hide();
         $('.resultado-simulacion').remove();
+        $('.rentabilidad-select').remove();
     });
+
+    // Mostrar el selector de días solo para fondos de plazo variable
+    function mostrarSelectorDias(fondo) {
+        const plazoData = fondo.plazo;
+        let selector = $('.rentabilidad-select');
+        if (selector.length === 0) {
+            // Si no existe, lo creamos y lo insertamos después del botón Simular
+            selector = $('<select class="rentabilidad-select"></select>');
+            $('.plazo-selector').after(selector);
+        }
+        if (plazoData.tipo === 'fijo') {
+            selector.hide();
+            return;
+        }
+        selector.empty();
+        selector.html(generarOpcionesPlazo(plazoData.minimo, plazoData.maximo));
+        selector.show();
+    }
+
+    // Función para calcular la rentabilidad según el plazo
+    function calcularRentabilidad(monto, rentabilidad, plazo) {
+        // Convertir la rentabilidad anual a diaria
+        const rentabilidadDiaria = Math.pow(1 + rentabilidad, 1/365) - 1;
+        // Calcular el valor final
+        const valorFinal = monto * Math.pow(1 + rentabilidadDiaria, plazo);
+        return valorFinal;
+    }
+
+    // Función para formatear porcentaje
+    function formatearPorcentaje(valor) {
+        return (valor * 100).toFixed(2) + '%';
+    }
 
     // Manejar clic en el botón de simular
     $(document).on('click', '.seleccionar-fondo-btn', function() {
         const fondoData = $(this).data('fondo');
-        mostrarSelectorPlazo(fondoData);
+        // Limpiar resultado anterior y dropdown
+        $('.resultado-simulacion').remove();
+        $('.rentabilidad-select').remove();
         // Guardar el fondo seleccionado para usarlo en el cálculo
         $('#simulador-progresion-container').data('fondo-seleccionado', fondoData);
-        // Limpiar resultado anterior
-        $('.resultado-simulacion').remove();
         // Si el fondo es de plazo fijo, calcular de una vez
         if (fondoData.plazo.tipo === 'fijo') {
             const monto = parseFloat($('#monto').val()) || 0;
@@ -451,18 +413,21 @@ jQuery(document).ready(function($) {
                 <div class="resultado-simulacion">
                     <h4>Resultado de la simulación</h4>
                     <p>Monto inicial: ${monto.toLocaleString()} COP</p>
-                    <p>Plazo: ${plazo} días</p>
+                    <p>Plazo: ${fondoData.fondo === 'Renta Plus' ? '40 años' : plazo + ' días'}</p>
                     <p>Rentabilidad anual: ${formatearPorcentaje(rentabilidad)}</p>
                     <p>Ganancia estimada: ${ganancia.toLocaleString()} COP</p>
                     <p>Valor final estimado: ${valorFinal.toLocaleString()} COP</p>
                 </div>
             `;
             $('.plazo-selector').after(resultado);
+        } else {
+            // Mostrar el selector de días
+            mostrarSelectorDias(fondoData);
         }
     });
 
-    // Manejar cambios en el selector de plazo
-    $(document).on('change', '#plazo-inversion', function() {
+    // Manejar cambios en el selector de días
+    $(document).on('change', '.rentabilidad-select', function() {
         const plazo = parseInt($(this).val());
         const fondoData = $('#simulador-progresion-container').data('fondo-seleccionado');
         const monto = parseFloat($('#monto').val()) || 0;
@@ -481,7 +446,7 @@ jQuery(document).ready(function($) {
                 </div>
             `;
             $('.resultado-simulacion').remove();
-            $('.plazo-selector').after(resultado);
+            $('.rentabilidad-select').after(resultado);
         }
     });
 }); 

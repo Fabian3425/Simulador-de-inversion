@@ -112,9 +112,9 @@ div#formulario-datos form input{
     margin: 0;
 }
 
-.campo input[type=number] { 
+/* .campo input[type=number] { 
     -moz-appearance:textfield;
-}
+} */
 
 
 
