@@ -3,7 +3,7 @@
  * Template para el simulador de inversión
  */
 ?>
-<div id="simulador-progresion-container" data-fondos='<?php echo esc_attr($json_fondos_data); ?>'>
+<div id="simulador-progresion-container" data-fondos='<?php echo esc_html($json_fondos_data); ?>'>
     
     <h2>Simulador de Inversión</h2>
     <p>En esta sección, puede simular su inversión de acuerdo con el monto que desea invertir en COP (Pesos Colombianos).</p>

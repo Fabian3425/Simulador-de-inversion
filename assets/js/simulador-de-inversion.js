@@ -1,10 +1,38 @@
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('simulador-progresion-container');
+    if (container) {
+        console.log('Container encontrado');
+        console.log('Dataset fondos:', container.dataset.fondos);
+        console.log('Tipo:', typeof container.dataset.fondos);
+        console.log('Longitud:', container.dataset.fondos ? container.dataset.fondos.length : 'undefined');
+    } else {
+        console.log('Container no encontrado');
+    }
+});
+
 // Tasa de cambio fija (se pasa desde PHP)
 const TASA_USD_COP = parseFloat(document.getElementById('simulador-progresion-container').dataset.tasaUsdCop);
 
 // 1. Leer el JSON con todas las rentabilidades y datos (minimo, riesgo, plazo)
 const simuladorContainer = document.getElementById('simulador-progresion-container');
-const fondos = JSON.parse(simuladorContainer.dataset.fondos);
+//const fondos = JSON.parse(simuladorContainer.dataset.fondos);
 
+let fondos = {};
+try {
+    const fondosData = simuladorContainer.dataset.fondos;
+    console.log('Datos de fondos raw:', fondosData); // Para debugging
+    
+    if (fondosData && fondosData.trim() !== '') {
+        fondos = JSON.parse(fondosData);
+    } else {
+        console.error('No hay datos de fondos disponibles');
+        fondos = {};
+    }
+} catch (error) {
+    console.error('Error parsing fondos JSON:', error);
+    console.log('Contenido problemático:', simuladorContainer.dataset.fondos);
+    fondos = {};
+}
 // 2. Funciones para formatear moneda y porcentaje
 function formatearMoneda(valor) {
     return new Intl.NumberFormat('es-CO', {
@@ -67,7 +95,6 @@ function calcularRentabilidadConPlazo(monto, rentabilidadAnual, plazo) {
     // Calcular el resultado
     return monto * (1 + rentabilidadPlazo);
 }
-
 // Función para actualizar los fondos sugeridos en tiempo real
 function actualizarFondosSugeridos() {
     const monto = parseFloat(document.getElementById('monto').value) || 0;
@@ -76,6 +103,11 @@ function actualizarFondosSugeridos() {
 
     // Filtrar fondos según el monto mínimo
     const fondosFiltrados = Object.entries(fondos).filter(([_, data]) => monto >= data.minimo);
+
+    // Ordenar los fondos por monto mínimo de mayor a menor
+    fondosFiltrados.sort(([, dataA], [, dataB]) => {
+        return dataB.minimo - dataA.minimo;
+    });
 
     if (fondosFiltrados.length === 0) {
         listaFondosDiv.innerHTML = '<p>No hay fondos disponibles para el monto ingresado.</p>';
@@ -91,9 +123,7 @@ function actualizarFondosSugeridos() {
             let mostrarSelectorPlazo = false;
             let plazoValor = 0;
             
-            // Corregir la lógica para determinar el tipo de plazo
             if (data.plazo && typeof data.plazo === 'object') {
-                // Caso 1: Plazo con estructura {tipo: 'fijo', valor: X} o {tipo: 'variable', minimo: X, maximo: Y}
                 if (data.plazo.tipo === 'fijo') {
                     esPlazoFijo = true;
                     plazoValor = data.plazo.valor;
@@ -102,34 +132,27 @@ function actualizarFondosSugeridos() {
                     } else {
                         textoPlazo = `${plazoValor} días`;
                     }
+                    mostrarSelectorPlazo = plazoValor < 365;
                 } else if (data.plazo.tipo === 'variable' || data.plazo.minimo) {
                     esPlazoFijo = false;
                     plazoValor = data.plazo.minimo;
                     textoPlazo = `${plazoValor} días`;
                     mostrarSelectorPlazo = plazoValor < 365;
-                }
-                // Caso 2: Plazo con estructura {minimo: X, maximo: Y}
-                else if (data.plazo.minimo && data.plazo.maximo) {
+                } else if (data.plazo.minimo && data.plazo.maximo) {
                     esPlazoFijo = false;
                     plazoValor = data.plazo.minimo;
                     textoPlazo = `${plazoValor} - ${data.plazo.maximo} días`;
                     mostrarSelectorPlazo = plazoValor < 365;
                 }
-            } 
-            // Caso 3: Plazo como número directo
-            else if (typeof data.plazo === 'number' && data.plazo > 0) {
+            } else if (typeof data.plazo === 'number' && data.plazo > 0) {
                 esPlazoFijo = true;
                 plazoValor = data.plazo;
                 textoPlazo = `${plazoValor} días`;
-            }
-            // Caso 4: Si no hay información de plazo
-            else {
+                mostrarSelectorPlazo = plazoValor < 365;
+            } else {
                 textoPlazo = 'No especificado';
             }
 
-            console.log(`Fondo: ${nombre}, Plazo data:`, data.plazo, `Texto plazo: ${textoPlazo}`);
-
-            // Obtener la rentabilidad anual
             const rentabilidadAnual = data.rentabilidades ? data.rentabilidades.anual : 0;
             const montoConRentabilidad = esPlazoFijo ? 
                 calcularRentabilidadConPlazo(monto, rentabilidadAnual, plazoValor) :
@@ -142,7 +165,7 @@ function actualizarFondosSugeridos() {
                     </div>
 
                     <div class="fondo-monto-invertido">
-                        <strong>Monto invertido:</strong> ${formatearMoneda(monto)} COP
+                        <strong>Monto invertido:</strong> ${formatearMoneda(monto)}
                     </div>
 
                     <div class="fondo-info">
@@ -175,7 +198,6 @@ function actualizarFondosSugeridos() {
     }
 }
 
-
 // Agregar event listeners para actualización en tiempo real
 document.getElementById('monto').addEventListener('input', actualizarFondosSugeridos);
 
@@ -199,7 +221,8 @@ document.getElementById('fondos-sugeridos').addEventListener('click', function(e
         fondoSeleccionado = event.target.dataset.fondoNombre;
         
         // Obtener el monto ingresado
-        const monto = parseFloat(document.getElementById('monto').value);
+        //const monto = parseFloat(document.getElementById('monto').value);
+        const monto = parseFloat(document.getElementById('monto').value) || 0;
         const fondoData = fondos[fondoSeleccionado];
         
         // Mostrar el selector de plazo solo si está habilitado para este fondo
@@ -232,7 +255,8 @@ document.getElementById('fondos-sugeridos').addEventListener('click', function(e
 // Agregar event listener para el selector de plazo
 document.getElementById('fondos-sugeridos').addEventListener('change', function(event) {
     if (event.target.classList.contains('plazo-select')) {
-        const monto = parseFloat(document.getElementById('monto').value);
+        //const monto = parseFloat(document.getElementById('monto').value);
+        const monto = parseFloat(document.getElementById('monto').value) || 0;
         const fondoNombre = event.target.dataset.fondo;
         const fondoData = fondos[fondoNombre];
         const plazo = parseInt(event.target.value);
@@ -394,7 +418,77 @@ jQuery(document).ready(function($) {
         return (valor * 100).toFixed(2) + '%';
     }
 
-    // Manejar clic en el botón de simular
+    // Función para formatear el monto con separadores de miles y sufijo COP
+function formatearMontoInput(valor) {
+    // Remover todo lo que no sea número
+    const numeroLimpio = valor.toString().replace(/[^\d]/g, '');
+    
+    // Si está vacío, retornar vacío
+    if (!numeroLimpio) return '';
+    
+    // Formatear con separadores de miles (puntos)
+    const numeroFormateado = parseInt(numeroLimpio).toLocaleString('es-CO');
+    
+    // Agregar sufijo COP
+    return numeroFormateado + ' COP';
+}
+
+// Función para obtener solo el valor numérico (sin formato)
+function obtenerValorNumerico(valorFormateado) {
+    return valorFormateado.replace(/[^\d]/g, '');
+}
+
+// Función para obtener el valor numérico del input monto
+function obtenerMontoNumerico() {
+    const inputMonto = document.getElementById('monto');
+    const valorFormateado = inputMonto.value;
+    const valorNumerico = obtenerValorNumerico(valorFormateado);
+    return parseFloat(valorNumerico) || 0;
+}
+
+// Función para manejar el formateo en tiempo real del input
+function configurarFormateoMonto() {
+    const inputMonto = document.getElementById('monto');
+    
+    // Cambiar el tipo de input de "number" a "text" para permitir formateo
+    inputMonto.type = 'text';
+    
+    // Evento para formatear mientras el usuario escribe
+    inputMonto.addEventListener('input', function(e) {
+        const valorActual = e.target.value;
+        const valorNumerico = obtenerValorNumerico(valorActual);
+        
+        // Solo formatear si hay un valor numérico
+        if (valorNumerico) {
+            const valorFormateado = formatearMontoInput(valorNumerico);
+            e.target.value = valorFormateado;
+            
+            // Actualizar fondos sugeridos con el valor numérico
+            actualizarFondosSugeridasConValor(parseInt(valorNumerico));
+        } else {
+            // Si no hay valor, limpiar
+            e.target.value = '';
+            actualizarFondosSugeridasConValor(0);
+        }
+    });
+    
+    // Evento para limpiar formato al hacer foco (para edición más fácil)
+    inputMonto.addEventListener('focus', function(e) {
+        const valorNumerico = obtenerValorNumerico(e.target.value);
+        if (valorNumerico) {
+            e.target.value = valorNumerico;
+        }
+    });
+    
+    // Evento para restaurar formato al perder foco
+    inputMonto.addEventListener('blur', function(e) {
+        const valorNumerico = obtenerValorNumerico(e.target.value);
+        if (valorNumerico) {
+            e.target.value = formatearMontoInput(valorNumerico);
+        }
+    });
+}
+    
     $(document).on('click', '.seleccionar-fondo-btn', function() {
         const fondoData = $(this).data('fondo');
         // Limpiar resultado anterior y dropdown
@@ -451,3 +545,59 @@ jQuery(document).ready(function($) {
     });
 }); 
  
+// REEMPLAZA tu función configurarFormateoMonto() CON ESTA VERSIÓN:
+function configurarFormateoMonto() {
+    // Esperar a que el DOM esté listo
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', configurarFormateoMonto);
+        return;
+    }
+    
+    const inputMonto = document.getElementById('monto');
+    if (!inputMonto) {
+        console.log('Input monto no encontrado, reintentando...');
+        setTimeout(configurarFormateoMonto, 100);
+        return;
+    }
+    
+    // Cambiar el tipo de input de "number" a "text" para permitir formateo
+    inputMonto.type = 'text';
+    
+    // Evento para formatear mientras el usuario escribe
+    inputMonto.addEventListener('input', function(e) {
+        const valorActual = e.target.value;
+        const valorNumerico = obtenerValorNumerico(valorActual);
+        
+        // Solo formatear si hay un valor numérico
+        if (valorNumerico) {
+            const valorFormateado = formatearMontoInput(valorNumerico);
+            e.target.value = valorFormateado;
+            
+            // Actualizar fondos sugeridos con el valor numérico
+            actualizarFondosSugeridasConValor(parseInt(valorNumerico));
+        } else {
+            // Si no hay valor, limpiar
+            e.target.value = '';
+            actualizarFondosSugeridasConValor(0);
+        }
+    });
+    
+    // Evento para limpiar formato al hacer foco (para edición más fácil)
+    inputMonto.addEventListener('focus', function(e) {
+        const valorNumerico = obtenerValorNumerico(e.target.value);
+        if (valorNumerico) {
+            e.target.value = valorNumerico;
+        }
+    });
+    
+    // Evento para restaurar formato al perder foco
+    inputMonto.addEventListener('blur', function(e) {
+        const valorNumerico = obtenerValorNumerico(e.target.value);
+        if (valorNumerico) {
+            e.target.value = formatearMontoInput(valorNumerico);
+        }
+    });
+}
+
+// Ejecutar inmediatamente
+configurarFormateoMonto();

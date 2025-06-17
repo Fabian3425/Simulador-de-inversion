@@ -30,7 +30,7 @@ add_shortcode('simulador-progresion', function() {
 
     // 7. Generar el HTML del simulador, inyectando el JSON en data-fondos
     ?>
-    <div id="simulador-progresion-container" data-fondos='<?php echo esc_attr($json_fondos_data); ?>'>
+    <div id="simulador-progresion-container" data-fondos='<?php echo $json_fondos_data; ?>'>
         
         <h2>Simulador de Inversión</h2>
         <p>En esta sección, puede simular su inversión de acuerdo con el monto que desea invertir en COP (Pesos Colombianos).</p>
@@ -42,7 +42,7 @@ add_shortcode('simulador-progresion', function() {
                     <div class="contenedor_campos">
                         <div class="campo">
                             <label for="monto">Monto a invertir (COP):</label>
-                            <input type="number" id="monto" name="monto" min="0" step="1000" required>
+                            <input type="text" id="monto" name="monto" placeholder="Ej: 1.000.000 COP" required="" data-gtm-form-interact-field-id="0">
                             <div class="error-mensaje" id="error-monto"></div>
                         </div>
                     </div>
